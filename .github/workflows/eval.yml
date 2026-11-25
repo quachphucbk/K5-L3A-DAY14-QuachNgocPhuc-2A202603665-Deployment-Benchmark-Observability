@@ -1,0 +1,33 @@
+name: Agent quality gate
+on: [pull_request]
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Start agent and evaluate
+        working-directory: 06-lab-complete/benchmark-observability/develop
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements.txt
+          AGENT_VERSION=v2 PORT=8002 MOCK_ERROR_RATE=0 MOCK_SLOW_RATE=0 python app.py > agent-ci.log 2>&1 &
+          agent_pid=$!
+          trap 'kill "$agent_pid" 2>/dev/null || true' EXIT
+          python - <<'PYREADY'
+          import time, urllib.request
+          for attempt in range(50):
+              try:
+                  with urllib.request.urlopen("http://localhost:8002/health", timeout=1) as response:
+                      if response.status == 200:
+                          break
+              except OSError:
+                  time.sleep(0.2)
+          else:
+              raise SystemExit("Agent did not become healthy")
+          PYREADY
+          python eval/run_eval.py --url http://localhost:8002 --min-accuracy 0.85 --baseline ../../../reports/eval_v2.json --out reports/eval_ci.json

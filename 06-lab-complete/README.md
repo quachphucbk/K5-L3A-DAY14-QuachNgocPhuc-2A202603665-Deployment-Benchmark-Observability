@@ -85,6 +85,7 @@ Script tự khởi động agent của bạn, gọi API thật, build và chạy
 pip install -r requirements.txt
 cp .env.example .env
 
+# Sau khi copy: đặt AGENT_API_KEY trong .env (chỉ local, không commit).
 # Chạy nhanh không cần Docker (cần Redis riêng nếu muốn test rate limit thật)
 AGENT_API_KEY=dev-key uvicorn app.main:app --reload
 
@@ -92,8 +93,9 @@ AGENT_API_KEY=dev-key uvicorn app.main:app --reload
 docker compose up --build
 
 curl http://localhost:8000/health
+# Header phải khớp AGENT_API_KEY đã đặt trong .env.
 curl -X POST http://localhost:8000/ask \
-     -H "X-API-Key: dev-key" -H "Content-Type: application/json" \
+     -H "X-API-Key: <key-trong-env>" -H "Content-Type: application/json" \
      -d '{"question": "What is deployment?"}'
 ```
 
